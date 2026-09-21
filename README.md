@@ -1,4 +1,6 @@
-# TIB Marketing Agent
+# Shadow
+
+> **Shadow = Phượng's shadow** — cái bóng đi làm hết đống task marketing thay bạn. (Đây là agent cá nhân của Phượng.)
 
 Phượng's (Phạm Yến Phượng) personal marketing agent for Teeinblue — the durable, portable, version-controlled **home** for the agent's brain, learning, and structure. Built following Ownego's internal "Tool + Learning = Agent" framework (see `memory/agent-building-framework.md`).
 
@@ -11,7 +13,7 @@ One agent (not multi-agent) that supports Phượng across her whole marketing s
 ## Structure
 
 ```
-TIB-Marketing-Agent/
+Shadow/
 ├── CLAUDE.md      # the agent brain — loaded as project instructions when Claude Code opens this folder
 ├── README.md      # this file
 ├── tools.md       # index of Phượng's tools + when the agent routes to each
