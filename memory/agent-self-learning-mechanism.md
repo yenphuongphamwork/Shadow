@@ -1,50 +1,57 @@
 ---
 name: agent-self-learning-mechanism
-description: "How this agent learns and updates itself over time — the human-in-the-loop rules, grounded in Ownego's AMA/#oe-lab guidance. Governs EVERY write to long-term memory."
+description: "How this agent learns and updates itself over time — human-in-the-loop rules grounded in Ownego's AMA (Sơn's answers) + #oe-lab. Governs EVERY write to long-term memory. Keep it lean."
 metadata: 
   node_type: memory
   type: reference
   originSessionId: 12a24032-5a00-438d-86c3-d8ba57dc88a0
-  modified: 2026-09-21T04:05:19.135Z
+  modified: 2026-09-21T04:21:19.961Z
 ---
 
-Grounded in the company AMA canvas "[AMA] AI & around it" + #oe-lab discussions (Sept 2026). What the company's AI experts actually said:
-- **Sonnh (sonnh): "Đừng để nó update data auto, sau này noise và mess, ko quản lý được."** Never let the agent silently absorb things into its brain. His own agent ("Hans") uses a review/approve step; to add knowledge you feed it a source (e.g. a Slack thread link), it analyzes and saves to brain — with the human in the loop ("mất công hơn xíu mà yên tâm").
-- **thangnc → Sonnh (about openclaw): "Cái gì đáng để agent nhớ, cái gì chỉ cần tra lại khi cần? Làm sao long-term memory giữ được qua compaction?"** → the remember-vs-look-up split, and durable files that survive context compaction.
-- **tiennhc (AMA): how do you keep the agent improving, not regressing; how do you handle a wrong answer so it doesn't repeat.**
-- **Phượng's own AMA/session question: do these agents ever conflict or lead you in circles? how do you detect and fix that?** → the mechanism must have a detection loop, not just a write path.
+Source: the company AMA "[AMA] AI & around it" — **Sơn (sonnh)'s written answers** (pasted by Phượng 2026-09-21) — plus #oe-lab threads. Sơn's caveat: no structure is "standard"; these optimize, but adapt to the specific agent. His overarching advice: **keep it super lean, one agent = one problem, minimize the data you must maintain** (OEditions S7 even argued "2nd brain nhiều khi không thực sự hữu dụng" — don't let this bloat into an unused brain).
 
-## The mechanism — 4 parts
+## 1. Two speeds of learning
+- **AUTO (no approval)** — ONLY `current-work-state.md` (the catch-up mirrors her own notes; copies, doesn't infer).
+- **PROPOSE-THEN-CONFIRM** — every other write to the brain. Agent says *"t học được X → định ghi vào [file] thế này, OK không?"*, writes only on her yes. Sơn: **"Mọi data được ghi vào nên do người quyết định"** — the human appears at the right moment, approve/reject. (This gates *memory writes* — separate from her task-autonomy pref, where small *work* just gets done.)
 
-### 1. Two speeds of learning (the key distinction)
-- **AUTO (no approval)** — ONLY `current-work-state.md`. The catch-up routine mirrors her own weekly self-DM note + the current Action Plan. Safe to auto because it copies her own words, doesn't infer or judge. This is the *only* thing that self-updates silently.
-- **PROPOSE-THEN-CONFIRM** — everything else that would change the agent's durable brain: a new fact/tool/rule/number/preference, or a correction she gives. The agent says *"T học được X → định ghi vào [file] thế này, OK không?"* and writes ONLY on her yes. This is Sonnh's "đừng update auto" applied. (This gate is about the agent changing its OWN memory — it's separate from her task-autonomy preference, where small/low-risk *work* just gets done and shown. Doing work ≠ rewriting the brain.)
+## 2. Remember vs look-up + static vs dynamic
+- Store only durable, reusable facts/prefs/rules/pointers. One-offs or things already in a repo/git/Confluence → look up on demand, don't store. Keep `MEMORY.md` lean (always-loaded index).
+- **Static data** (stable knowledge, rules, prefs) → skill / prompt `.md` (memory files). **Dynamic data** (changes often, e.g. work-state) → the auto-refreshed file. Don't mix them.
+- Deciding *which file* a fact belongs in is a job to do well (Sơn runs a "librarian" subagent for it; for our single-agent that's just a rule the agent follows, not a new agent) — put each fact in its one right place, don't duplicate across files.
 
-### 2. Remember-vs-look-up filter (run before ANY write)
-Write to memory only if it is **durable + reusable across sessions** (a preference, a rule, a hard-won fact, a pointer to where something lives). Do NOT store: one-offs, or anything already in a repo / git history / Confluence — look those up on demand instead. Keep `MEMORY.md` lean: it's the always-loaded index; every other file is pulled only when the task needs it. (This is exactly the remember-vs-lookup split thangnc asked about, and what keeps the brain from turning into noise.)
+## 3. Fixing wrong info — do NOT annotate, actually FIX (Sơn's explicit warning)
+- Sơn: if you just tell it "this is wrong, đừng lặp lại", the **old wrong data stays** and it appends a "this is wrong" line → **data thành rác**. So: when a fact is wrong, **correct or delete the wrong content cleanly**, don't stack a "this was wrong" line under it.
+- Only for a genuine *reversal of understanding* (not plain error) leave `_Corrected <date>: was "..." — now "..."_` so history is legible. Everything git-backed → real rollback if needed.
 
-### 3. Not regressing (edit protocol)
-- Edit the right file **in place** — never stack a contradicting line under an old one.
-- Reversing a prior fact → leave `_Corrected <date>: was "..." — now "..."_`.
-- Behavioral/process corrections → skill `lessons.md`; tone/voice corrections → skill `voice-notes.md`.
-- Everything git-backed → a bad learning can be rolled back; git history is the safety net against regression.
+## 4. Lesson mechanism (Sơn's model — for recurring mistakes)
+Not every mistake becomes a lesson (that's noise). Instead:
+- Let a mistake happen a few times, but the agent must **notice it's repeating** (track recurrence; Sơn's rough thresholds: small errors ~5–10 repeats, big errors <5).
+- On reaching the threshold → **escalate to Phượng**: "lỗi này lặp N lần rồi, solution nên là gì?" → **she gives the solution**.
+- Save that as a **lesson in `lessons.md`, kept separate from knowledge** (it's a fix-recipe, not a fact). Next time the agent hits that error, it looks up the lesson and already has her solution.
+- A lesson that keeps recurring after being logged = the rule is too weak → strengthen it, don't just re-log.
 
-### 4. Detection loop (catch when it's wrong — Phượng's own concern)
-- The session-start catch-up + her review of each *proposed* learning IS the detection point — nothing enters the brain unseen.
-- `lessons.md` logs each **class** of mistake so the same kind doesn't recur.
-- If the agent seems to go in circles or contradict itself, say so out loud and check the relevant memory file for a stale/contradicting entry; fix in place per §3.
+## 5. Detection + resurfacing (catch stale/wrong — Phượng's own AMA concern)
+- Session-start catch-up + her review of each proposed write = nothing enters the brain unseen.
+- **Staleness resurfacing** (Sơn's): the weekly job (and on-request "rà lại memory") flags facts that look outdated, unused, or untouched >~14 days → surfaces them in the digest as "vẫn đúng / cần chỉnh?" for her to confirm. It flags, never auto-fixes.
+- If the agent contradicts itself / goes in circles, say so and check the relevant file for a stale entry; fix per §3.
 
-## Org patterns borrowed from other Ownego / open agents (Sept 2026 study)
-- **pm-brain** (github.com/phuryn/pm-brain — the closest analog, a personal "brain"): confirms the whole design — plain grep-able markdown, **no vector DB / no memory tricks**, files split by *type*, and every fact carries **provenance**. Two things adopted from it below (provenance tags + a weekly drift sweep). Its heavier folders (`hypotheses/`, `ingestion/`, `source/` audit trail) are NOT built — overkill for a marketing agent; available to grow into later if she wants.
-- **blacksmith** (github.com/juzser/blacksmith — Sonnh's, a code "factory"): its factory/worktrees/token-budgets are for multi-agent code building — deliberately NOT adopted (her framework = 1 agent, don't over-engineer). But its **"lesson candidates you approve or reject"** = exactly the propose-then-confirm gate above, and its **same-mistake-rate** idea is adopted into `lessons.md` (below).
+## 6. Future capture mechanisms (from Hans — need the deferred always-on/Slack+dashboard setup; not built yet)
+When/if she sets up the always-on Slack agent, these become possible; until then the manual equivalent is "point at it and say nhớ cái này":
+- **Slack-reaction capture**: react to a message → agent briefs/summarizes → proposes to save (insight/calendar/note).
+- **Daily journal**: agent asks a few fixed + flexible questions, she picks answers → captured.
+- **Monthly public-source scan**: re-scan website/branding/public blogs to refresh info.
+- **Weekly summary → proposed insights → approve/reject inbox** (her weekly digest already does the summary; the "proposed insights to approve" is the piece to add when there's a dashboard/inbox).
 
-### Adopted refinements
-- **Provenance on every stored fact** (from pm-brain): when writing a memory fact, note where it came from — her Slack note / Confluence / a decision she made in chat / an inference still to confirm. Makes drift detectable and keeps "never fabricate" honest. (The existing memory files already cite sources; make it a rule, not a habit.)
-- **Weekly drift sweep** (from pm-brain's `/review`): the weekly scheduled job — and a manual "rà lại memory" on request — scans the memory files for stale or contradicting entries and flags them in the digest for her judgment. This is the active half of §4 (detection), not just passive logging.
-- **Same-mistake rate** (from blacksmith): when appending to `lessons.md`, if a logged mistake class recurs, mark it — a recurring one means the lesson isn't working and needs a stronger rule, not another log line.
+## Org patterns borrowed (Sept 2026 study) — condensed
+- **pm-brain**: confirms grep-able markdown, no vector DB; adopted provenance tags + weekly drift sweep. Its heavy folders (`hypotheses/`, `ingestion/`, `source/`) NOT built (bloat).
+- **blacksmith** (Sơn's code factory): its factory/worktrees/token-budgets NOT adopted (1-agent). Its "lesson candidates you approve/reject" = the §4 lesson mechanism.
+- **Provenance**: tag each stored fact with source (her Slack note / Confluence / a decision in chat / an inference-to-confirm).
+
+## Subagent economy (only when delegating per skill §11b)
+If spawning subagents for parallel work: reserve the strong model for planning/synthesis; grunt work (research, first-draft, data pulls) can use a cheaper model. Sơn's core point: **the win is in detailed planning up front (human + strong model)** — then cheap models execute well. Don't over-summon; one agent stays the default.
 
 ## Hard "do not"
-No fully-autonomous memory absorption. No auto-ingesting external data into the brain without the propose-confirm gate. (The weekly scheduled job may auto-refresh `current-work-state.md` and post a digest, but it must NOT auto-write any other memory file.)
+No fully-autonomous memory absorption. No auto-ingesting external data into the brain without the propose-confirm gate. Don't let md files grow large or overlap. (The weekly job may auto-refresh `current-work-state.md` + post a digest, but must not auto-write any other memory file.)
 
-## Update protocol for this file
-If the company shares newer guidance on agent learning (another AMA, an #oe-lab post), reconcile it here in place. This file governs the others — keep it the single source of truth for "how the agent learns."
+## Update protocol
+Newer company guidance (another AMA/#oe-lab) → reconcile here in place. This file governs the others.
